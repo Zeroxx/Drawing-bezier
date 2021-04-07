@@ -1,21 +1,26 @@
 import React, {useRef, useEffect, useState} from 'react';
-import './DrawCanvas.less';
+import './DrawCanvas.css';
 
 function DrawCanvas () {
     const [drawing, setDrawing] = useState(false);
     const [ctx, setCtx] = useState<CanvasRenderingContext2D | null>(null);
+    const [drawcolor, setDrawcolor] = useState<string>('#000');
+    const canvasWidth = 800;
+    const canvasHeight = 600;
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
-    const fillCircle = (ctx: CanvasRenderingContext2D, x:number , y: number, drawRadius: number = 2, drawColor: string = '#333') => {
-        ctx.fillStyle = drawColor;
+    const fillCircle = (ctx: CanvasRenderingContext2D, x:number , y: number, drawRadius: number = 4) => {
+        ctx.fillStyle = drawcolor;
         ctx.beginPath();
         ctx.moveTo(x, y);
         ctx.arc(x, y, drawRadius, 0, Math.PI * 2, false);
         ctx.fill();
     }
 
-    const empty = (ctx: CanvasRenderingContext2D) => {
-        ctx.clearRect(0, 0, 0, 0)
+    const empty = (ctx: CanvasRenderingContext2D | null) => {
+        if (!ctx) return;
+        console.log('clear canvas?');
+        ctx.clearRect(0, 0, canvasWidth, canvasHeight)
     }
 
     const mouseDraw = (event: React.MouseEvent<HTMLCanvasElement, MouseEvent>, ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement) => {
@@ -38,14 +43,30 @@ function DrawCanvas () {
         mouseDraw(event, ctx, canvas);
     }
 
+    const resizeCanvasToDisplay = (canvas: HTMLCanvasElement | null) => {
+    if (!canvas) return;
+    const { width, height } = canvas.getBoundingClientRect()
+
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width
+      canvas.height = height
+      return true
+    }
+
+    return false
+  }
+
     useEffect(() => {
         if (canvasRef && canvasRef.current){ 
             const canvas = canvasRef.current;
             setCtx(canvas.getContext('2d'));
-            if (!ctx) return;            
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight;
+            if (!ctx) return;  
+            resizeCanvasToDisplay(canvas);          
         }
         return; 
-    }, [canvasRef])
+    }, [canvasRef, ctx])
 
     
     return (
@@ -55,7 +76,9 @@ function DrawCanvas () {
                 onMouseDown={handleMouseDown} 
                 onMouseUp={handleMouseUp} 
                 onMouseMove={(event) => handleMouseMove(event, canvasRef.current, ctx)}>
-            </canvas>       
+            </canvas>    
+            <button onClick={() => empty(ctx)}>Clear the canvas</button>
+            <input type="color" id='drawcolor' onChange={(e) => setDrawcolor(e.target.value)} /> <label>Pick drawcolor</label>
         </div>
     )
 }
