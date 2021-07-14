@@ -1,7 +1,7 @@
 import React, {useRef, useEffect, useState} from 'react';
 import { LazyBrush, Coordinates } from 'lazy-brush';
 import './DrawCanvas.css';
-import { findCanvasPosition, copyTouch, middleCoordinatePoint, getPositions } from './utils/drawUtils';
+import { findCanvasPosition, copyTouch, middleCoordinatePoint, getPositions, resizeCanvasToDisplay, getCanvasWidth, getCanvasHeight } from './utils/drawUtils';
 
   interface SavedLines {
       points: Coordinates[];
@@ -18,6 +18,8 @@ function DrawCanvas () {
     const [drawRadius, setDrawRadius] = useState<number>(4);
     const [points, setPoints] = useState<Coordinates[]>([]);
     const [drawnLines, setDrawnLines] = useState<SavedLines[]>([]);
+    const [canvasHeight, setCanvasHeight] = useState<number>(600);
+    const [canvasWidth, setCanvasWidth] = useState<number>(800);
 
     const lazyBrush = new LazyBrush({
         radius: 1,
@@ -29,8 +31,6 @@ function DrawCanvas () {
     });
 
     const ongoingTouches = new Array;
-    const canvasWidth = 800;
-    const canvasHeight = 600;
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const redrawCanvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -123,16 +123,17 @@ function DrawCanvas () {
     
         if (drawing && (lazyBrush.brushHasMoved() || isDisabled)) {
           setPoints(points => [...points, lazyBrush.brush.toObject()]);
-          drawPoints(points, ctx);
+          drawPoints(points, ctx, drawColor, drawRadius);
         }
       };
     
-    const drawPoints = (pointsToDraw: Coordinates[], ctx: CanvasRenderingContext2D) => {
+    const drawPoints = (pointsToDraw: Coordinates[], ctx: CanvasRenderingContext2D, currentDrawColor: string, currentDrawRadius: number) => {
+      console.log('drawing point');
         if (pointsToDraw.length < 2) return;
         ctx.lineJoin = "round";
         ctx.lineCap = "round";
-        ctx.strokeStyle = drawColor;
-        ctx.lineWidth = drawRadius * 2;
+        ctx.strokeStyle = currentDrawColor;
+        ctx.lineWidth = currentDrawRadius * 2;
     
         let p1 = pointsToDraw[0];
         let p2 = pointsToDraw[1];
@@ -156,7 +157,7 @@ function DrawCanvas () {
         setDrawnLines([...drawnLines, { points: [...points], drawColor, drawRadius } ]);
         setPoints([]);
     
-        const dpi = window.innerWidth > 1024 ? 1 : window.devicePixelRatio;
+        const dpi = 1;
         const width = canvas.width / dpi;
         const height = canvas.height / dpi;
 
@@ -187,17 +188,6 @@ function DrawCanvas () {
         handlePointerMove(offset.x, offset.y, ctx);
     }
 
-    const resizeCanvasToDisplay = (canvas: HTMLCanvasElement | null) => {
-    if (!canvas) return;
-    const { width, height } = canvas.getBoundingClientRect()
-        if (canvas.width !== width || canvas.height !== height) {
-        canvas.width = width
-        canvas.height = height
-        return true
-        }
-    return false
-    }
-
     const clearCanvas = (canvas: HTMLCanvasElement | null) => {
         if (!ctx || !canvas) return;
         setDrawnLines([]);
@@ -206,7 +196,7 @@ function DrawCanvas () {
           0,
           canvas.width,
           canvas.height
-        );
+      );
     }
 
     interface SafeData {
@@ -215,7 +205,7 @@ function DrawCanvas () {
         height: number;
     }
 
-    const getSaveData = (): SafeData => {
+    const getSaveData = (drawnLines: SavedLines[]): SafeData => {
         const saveData = {
           lines: [...drawnLines],
           width: canvasWidth,
@@ -225,6 +215,7 @@ function DrawCanvas () {
       };
 
     const loadSaveData = (saveData: SafeData, canvas: HTMLCanvasElement | null) => {
+      console.log('test', saveData);
         if (typeof saveData !== "object") {
           throw new Error("saveData needs to be of type object!");
         }
@@ -235,51 +226,84 @@ function DrawCanvas () {
         }
         clearCanvas(canvas);
         if (width === canvasWidth && height === canvasHeight) {
-        simulateDrawingLines(canvas);
+        simulateDrawingLines(saveData.lines, canvas);
         } 
     }
     
-      const simulateDrawingLines = (canvas: HTMLCanvasElement | null) => {
-        if (!canvas || !redrawCtx) return;
-
-        let curTime = 0;
-        let timeoutGap = 20;
-        drawnLines.forEach(line => {
-          const { points, drawColor, drawRadius } = line;
-          for (let i = 1; i < points.length; i++) {
-            curTime += timeoutGap;
-            window.setTimeout(() => {
-              drawPoints(points.slice(0, i + 1), redrawCtx);
-            }, curTime);
-          }
+    const simulateDrawingLines = (drawnLines: SavedLines[], canvas: HTMLCanvasElement | null) => {
+      if (!canvas || !redrawCtx) return;
+      let curTime = 0;
+      let timeoutGap = 5;
+      drawnLines.forEach(line => {
+        const { points, drawColor, drawRadius } = line;
+        for (let i = 1; i < points.length; i++) {
           curTime += timeoutGap;
           window.setTimeout(() => {
-            saveLine(canvas, redrawCtx);
+            drawPoints(points.slice(0, i + 1), redrawCtx, drawColor, drawRadius);
           }, curTime);
-        });
-      };
+        }
+        curTime += timeoutGap;
+        window.setTimeout(() => {
+          saveLine(canvas, redrawCtx);
+        }, curTime);
+      });
+    };
+
+    const handleResize = (canvas: HTMLCanvasElement | null) => {
+      if (!canvas) return;
+      setCanvasHeight(getCanvasHeight(canvas));
+      setCanvasWidth(getCanvasWidth(canvas));
+    }
 
     useEffect(() => {
         if (canvasRef && canvasRef.current){ 
             const canvas = canvasRef.current;
+            handleResize(canvas);
+            canvas.height = canvasHeight
+            canvas.width = canvasWidth
             setCtx(canvas.getContext('2d'));
-            canvas.width = canvasWidth;
-            canvas.height = canvasHeight;
-            if (!ctx) return;  
-            resizeCanvasToDisplay(canvas);          
+            if (!ctx) return;
         }
 
         if (redrawCanvasRef && redrawCanvasRef.current){ 
             const canvas = redrawCanvasRef.current;
+            handleResize(canvas);
+            canvas.height = canvasHeight
+            canvas.width = canvasWidth
             setRedrawCtx(canvas.getContext('2d'));
-            canvas.width = canvasWidth;
-            canvas.height = canvasHeight;
             if (!redrawCtx) return;  
             resizeCanvasToDisplay(canvas);          
         }
         return; 
-    }, [canvasRef, ctx, redrawCanvasRef])
+    }, [canvasHeight, canvasRef, canvasWidth, ctx, redrawCanvasRef, redrawCtx])
 
+    function downloadObjectAsJson(exportObj: SavedLines[], exportName: string){
+      var dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportObj));
+      var downloadAnchorNode = document.createElement('a');
+      downloadAnchorNode.setAttribute("href",     dataStr);
+      downloadAnchorNode.setAttribute("download", exportName + ".json");
+      document.body.appendChild(downloadAnchorNode); // required for firefox
+      downloadAnchorNode.click();
+      downloadAnchorNode.remove();
+    }
+
+    function handleSubmit (event: React.ChangeEvent<HTMLInputElement>, canvas: HTMLCanvasElement | null) {
+    
+      let file = event.target?.files;
+      console.log('testtest', file);
+      if (!file) return;
+
+      let reader = new FileReader();
+    
+      reader.readAsText(file[0]);
+    
+      reader.onload = function() {
+        if (!reader.result || !canvas) return;
+        let drawnLinesData = JSON.parse(reader.result as string);
+        loadSaveData(getSaveData(drawnLinesData), canvas);
+      };
+    
+     }
     
     return (
         <div className="canvas-wrapper"> 
@@ -294,6 +318,7 @@ function DrawCanvas () {
             </canvas>    
             <br/>
             <button onClick={() => clearCanvas(canvasRef.current)}>Clear the canvas</button>
+            <button onClick={() => downloadObjectAsJson(drawnLines, 'yourArtwork')}>Download my art</button>
             <br/>
             <input type="color" id='drawcolor' onChange={(e) => setDrawcolor(e.target.value)} /> <label>Pick drawcolor</label>
             <br/>
@@ -302,7 +327,9 @@ function DrawCanvas () {
             <canvas 
                 ref={redrawCanvasRef} id="reDrawCanvas">
             </canvas>    
-            <button onClick={() => loadSaveData(getSaveData(), redrawCanvasRef.current)}>REDRAW ME</button>
+            <button onClick={() => clearCanvas(redrawCanvasRef.current)}>Clear the canvas</button>
+            <button onClick={() => loadSaveData(getSaveData(drawnLines), redrawCanvasRef.current)}>REDRAW ME</button>
+            <input type="file" id="myFile" name="filename" onChange={(e) => handleSubmit(e, redrawCanvasRef.current)}></input>
         </div>
     )
 }

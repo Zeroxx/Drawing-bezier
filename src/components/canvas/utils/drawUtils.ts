@@ -27,3 +27,23 @@ export function copyTouch(touch: React.Touch) {
 export const getPositions = (offsetX: number, offsetY: number, clientX: number, clientY: number): {x: number, y: number} => {
     return {x: clientX - offsetX, y: clientY - offsetY}
 }
+
+export const resizeCanvasToDisplay = (canvas: HTMLCanvasElement): void => {
+    const { width, height } = canvas.getBoundingClientRect()
+    console.log('boundingclient: ', width, height);
+        if (canvas.width !== width || canvas.height !== height) {
+            canvas.width = width
+            canvas.height = height
+        }
+    return;
+}
+
+export const getCanvasHeight = (canvas: HTMLCanvasElement): number => {
+    const { height } = canvas.getBoundingClientRect()
+    return height;
+}
+
+export const getCanvasWidth = (canvas: HTMLCanvasElement): number => {
+    const { width } = canvas.getBoundingClientRect()
+    return width;
+}
