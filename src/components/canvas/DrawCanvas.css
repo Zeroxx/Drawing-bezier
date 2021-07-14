@@ -1,5 +1,6 @@
 #drawCanvas {
     border: solid 1px #000;
+    touch-action: none;
 }
 .canvas-wrapper {
     background-color: #fff;
