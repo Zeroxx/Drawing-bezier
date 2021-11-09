@@ -128,7 +128,6 @@ function DrawCanvas () {
       };
     
     const drawPoints = (pointsToDraw: Coordinates[], ctx: CanvasRenderingContext2D, currentDrawColor: string, currentDrawRadius: number) => {
-      console.log('drawing point');
         if (pointsToDraw.length < 2) return;
         ctx.lineJoin = "round";
         ctx.lineCap = "round";
